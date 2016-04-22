@@ -1,7 +1,7 @@
 <?php
 /**
- * Plugin Name: Recent Logins
- * Description: Is there someone else logging in to your account? Keep an eye on your recent login records.
+ * Plugin Name: Recent Login Activity
+ * Description: Is there someone else logging in to your account? Keep an eye on your recent login records. This awesome plugin will help you see your latest login records including time of login, IP address, browser and OS info.
  * Plugin URI: http://medhabi.com
  * Author: Nazmul Ahsan
  * Author URI: http://nazmulahsan.me
@@ -31,7 +31,7 @@ class Recent_Logins{
 		$sql = "CREATE TABLE $table_name (
 			id mediumint(9) NOT NULL AUTO_INCREMENT,
 			user_id mediumint(9) NOT NULL,
-			time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
+			time int(10) NOT NULL,
 			ip_address tinytext NOT NULL,
 			client text NOT NULL,
 			UNIQUE KEY id (id)
@@ -50,19 +50,19 @@ class Recent_Logins{
 			$table_name,
 			array(
 				'user_id' => $user->data->ID,
-				'time' => date( 'Y-m-d H:i:s' ),
+				'time' => time(),
 				'ip_address' => $_SERVER['REMOTE_ADDR'],
 				'client' => serialize( $this->getBrowser() )
 			),
 			array(
 				'%d',
-				'%s',
+				'%d',
 				'%s',
 				'%s'
 			) 
 		);
 
-		update_user_meta( $user->data->ID, 'last-login', date( 'Y-m-d H:i:s' ) );
+		update_user_meta( $user->data->ID, 'last-login', time() );
 	}
 
 	public function show_recent_logins( $profileuser ){
@@ -84,9 +84,9 @@ class Recent_Logins{
 					<table class="recent-login-table">
 						<thead>
 							<tr>
-								<th>Date</th>
+								<th>Time</th>
 								<th>IP</th>
-								<th>Operating System</th>
+								<th>Platform</th>
 								<th>Browser</th>
 								<th>Version</th>
 							</tr>
@@ -96,8 +96,8 @@ class Recent_Logins{
 							$client = unserialize( $log->client );
 							?>
 							<tr>
-								<td><?php echo $log->time; ?></td>
-								<td><?php echo $log->ip_address; ?></td>
+								<td title="<?php echo $this->ago( $log->time ); ?>"><?php echo date( get_option( 'date_format' ) . " " . get_option( 'time_format' ), $log->time ); ?></td>
+								<td><a href="https://www.ipalyzer.com/<?php echo $log->ip_address; ?>" target="_blank"><?php echo $log->ip_address; ?></td>
 								<td><?php echo $client['platform']; ?></td>
 								<td><?php echo $client['name']; ?></td>
 								<td><?php echo $client['version']; ?></td>
@@ -108,7 +108,7 @@ class Recent_Logins{
 				<?php else: ?>
 					<p>No logs found!</p>
 				<?php endif; ?>
-					<p class="description"><?php _e( 'Bla bla bla bla..' ); ?></p>
+					<!-- <p class="description"><?php _e( 'Bla bla bla bla..' ); ?></p> -->
 				</td>
 			</tr>
 		</table>
@@ -129,7 +129,7 @@ class Recent_Logins{
 	public function manage_user_show_content( $value, $column_name, $user_id ) {
 	    $user = get_userdata( $user_id );
 		if ( 'last-login' == $column_name )
-			return get_user_meta( $user_id, 'last-login', true ) != null ? $this->dateDiff( get_user_meta( $user_id, 'last-login', true ) ) : 'Never';
+			return get_user_meta( $user_id, 'last-login', true ) != null ? $this->ago( get_user_meta( $user_id, 'last-login', true ) ) : 'Never';
 	    return $value;
 	}
 
@@ -231,42 +231,40 @@ class Recent_Logins{
 	}
 
 	/**
-	 * @link http://stackoverflow.com/a/24100772/3747157
+	 * @link http://stackoverflow.com/a/14339355/3747157
 	 */
-	public function dateDiff( $date ) {
-		$mydate = date( "Y-m-d H:i:s" );
-		$theDiff = "";
-		//echo $mydate;//2014-06-06 21:35:55
-		$datetime1 = date_create( $date );
-		$datetime2 = date_create( $mydate );
-		$interval = date_diff( $datetime1, $datetime2 );
-		//echo $interval->format('%s Seconds %i Minutes %h Hours %d days %m Months %y Year    Ago')."<br>";
-		$min = $interval->format( '%i' );
-		$sec = $interval->format( '%s' );
-		$hour = $interval->format( '%h' );
-		$mon = $interval->format( '%m' );
-		$day = $interval->format( '%d' );
-		$year = $interval->format( '%y' );
-		if( $interval->format( '%i%h%d%m%y' ) == "00000" ) {
-		//echo $interval->format('%i%h%d%m%y')."<br>";
-			return $sec." Seconds ago";
-		}
-		elseif( $interval->format( '%h%d%m%y' ) == "0000" ){
-			return $min." Minutes ago";
-		}
-		elseif( $interval->format( '%d%m%y' ) == "000" ){
-			return $hour." Hours ago";
-		}
-		elseif( $interval->format( '%m%y' ) == "00" ){
-			return $day." Days ago";
-		}
-		elseif( $interval->format( '%y' ) == "0" ){
-			return $mon." Months ago";
-		}
-		else{
-			return $year." Years ago";
-		}
+	public function ago( $ptime ){
+	    $etime = time() - $ptime;
 
+	    if ($etime < 1)
+	    {
+	        return '0 seconds';
+	    }
+
+	    $a = array( 365 * 24 * 60 * 60  =>  'year',
+	                 30 * 24 * 60 * 60  =>  'month',
+	                      24 * 60 * 60  =>  'day',
+	                           60 * 60  =>  'hour',
+	                                60  =>  'minute',
+	                                 1  =>  'second'
+	                );
+	    $a_plural = array( 'year'   => 'years',
+	                       'month'  => 'months',
+	                       'day'    => 'days',
+	                       'hour'   => 'hours',
+	                       'minute' => 'minutes',
+	                       'second' => 'seconds'
+	                );
+
+	    foreach ($a as $secs => $str)
+	    {
+	        $d = $etime / $secs;
+	        if ($d >= 1)
+	        {
+	            $r = round($d);
+	            return $r . ' ' . ($r > 1 ? $a_plural[$str] : $str) . ' ago';
+	        }
+	    }
 	}
 
 }
