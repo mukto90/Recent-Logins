@@ -1,6 +1,11 @@
 <?php
 /**
  * Plugin Name: Recent Logins
+ * Description: Is there someone else logging in to your account? Keep an eye on your recent login records.
+ * Plugin URI: http://medhabi.com
+ * Author: Nazmul Ahsan
+ * Author URI: http://nazmulahsan.me
+ * Version: 1.0.0
  */
 
 class Recent_Logins{
@@ -57,7 +62,7 @@ class Recent_Logins{
 			) 
 		);
 
-		add_user_meta( $user->data->ID, 'last-login', date( 'Y-m-d H:i:s' ) );
+		update_user_meta( $user->data->ID, 'last-login', date( 'Y-m-d H:i:s' ) );
 	}
 
 	public function show_recent_logins( $profileuser ){
