@@ -9,6 +9,11 @@ class Recent_Logins{
 		add_action( 'wp_login', array( $this, 'add_log' ), 10, 2 );
 		add_action( 'show_user_profile', array( $this, 'show_recent_logins' ) );
 		add_action( 'edit_user_profile', array( $this, 'show_recent_logins' ) );
+
+		add_filter( 'manage_site-users-network_columns', array( $this, 'manage_user_add_column' ) );
+		add_filter( 'manage_users_columns', array( $this, 'manage_user_add_column' ) );
+		add_filter( 'wpmu_users_columns', array( $this, 'manage_user_add_column' ) );
+		add_filter( 'manage_users_custom_column', array( $this, 'manage_user_show_content' ), 10, 3 );
 	}
 
 	public function create_table(){
@@ -51,6 +56,8 @@ class Recent_Logins{
 				'%s'
 			) 
 		);
+
+		add_user_meta( $user->data->ID, 'last-login', date( 'Y-m-d H:i:s' ) );
 	}
 
 	public function show_recent_logins( $profileuser ){
@@ -108,6 +115,18 @@ class Recent_Logins{
 			}
 		</style>
 	<?php }
+
+	public function manage_user_add_column( $cols ) {
+	    $cols['last-login'] = 'Last Login';
+	    return $cols;
+	}
+
+	public function manage_user_show_content( $value, $column_name, $user_id ) {
+	    $user = get_userdata( $user_id );
+		if ( 'last-login' == $column_name )
+			return get_user_meta( $user_id, 'last-login', true ) != null ? $this->dateDiff( get_user_meta( $user_id, 'last-login', true ) ) : 'Never';
+	    return $value;
+	}
 
 	/**
 	 * Gets client's browser and OS info.
@@ -204,6 +223,45 @@ class Recent_Logins{
 	        'platform'  => $platform,
 	        'pattern'   => $pattern
 	    );
+	}
+
+	/**
+	 * @link http://stackoverflow.com/a/24100772/3747157
+	 */
+	public function dateDiff( $date ) {
+		$mydate = date( "Y-m-d H:i:s" );
+		$theDiff = "";
+		//echo $mydate;//2014-06-06 21:35:55
+		$datetime1 = date_create( $date );
+		$datetime2 = date_create( $mydate );
+		$interval = date_diff( $datetime1, $datetime2 );
+		//echo $interval->format('%s Seconds %i Minutes %h Hours %d days %m Months %y Year    Ago')."<br>";
+		$min = $interval->format( '%i' );
+		$sec = $interval->format( '%s' );
+		$hour = $interval->format( '%h' );
+		$mon = $interval->format( '%m' );
+		$day = $interval->format( '%d' );
+		$year = $interval->format( '%y' );
+		if( $interval->format( '%i%h%d%m%y' ) == "00000" ) {
+		//echo $interval->format('%i%h%d%m%y')."<br>";
+			return $sec." Seconds ago";
+		}
+		elseif( $interval->format( '%h%d%m%y' ) == "0000" ){
+			return $min." Minutes ago";
+		}
+		elseif( $interval->format( '%d%m%y' ) == "000" ){
+			return $hour." Hours ago";
+		}
+		elseif( $interval->format( '%m%y' ) == "00" ){
+			return $day." Days ago";
+		}
+		elseif( $interval->format( '%y' ) == "0" ){
+			return $mon." Months ago";
+		}
+		else{
+			return $year." Years ago";
+		}
+
 	}
 
 }
