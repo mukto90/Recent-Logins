@@ -1,16 +1,43 @@
 <?php
 /**
- * Plugin Name: Recent Login Activity
- * Description: Is there someone else logging in to your account? Keep an eye on your recent login records. This awesome plugin will help you see your latest login records including time of login, IP address, browser and OS info.
+ * Plugin Name: Recent Logins
+ * Description: Is there someone else logging in to your account? Keep an eye on your recent login records. This awesome plugin will help you see your latest login records including time of login, IP address, street address, city, country, location map, browser and OS info.
  * Plugin URI: http://medhabi.com
  * Author: Nazmul Ahsan
  * Author URI: http://nazmulahsan.me
  * Version: 1.0.0
+ * Requires at least: 3.0
+ * Tested up to: 4.5
  */
 
-class Recent_Logins{
+/**
+ * if accessed directly, exit.
+ */
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Main class for this plugin
+ */
+if( ! class_exists( 'Recent_Logins' ) ) :
+class Recent_Logins {
+
 	public function __construct(){
-		add_action( 'plugins_loaded', array( $this, 'create_table' ) );
+		define( 'RECENT_LOGIN_PRO_URL', 'http://medhabi.com/product/recent-logins-pro/' );
+
+		/**
+		 * if we have 'pro/pro.php' file, that means we are using pro version of this plugin.
+		 */
+		define( 'RECENT_LOGIN_PRO', file_exists( dirname( __FILE__ ) . '/pro/pro.php' ) );
+
+		self::hooks();
+
+		if( RECENT_LOGIN_PRO ) require_once dirname( __FILE__ ) . '/pro/pro.php';
+	}
+
+	public function hooks(){
+		add_action( 'plugins_loaded', array( $this, 'install' ) );
 		add_action( 'wp_login', array( $this, 'add_log' ), 10, 2 );
 		add_action( 'show_user_profile', array( $this, 'show_recent_logins' ) );
 		add_action( 'edit_user_profile', array( $this, 'show_recent_logins' ) );
@@ -21,7 +48,7 @@ class Recent_Logins{
 		add_filter( 'manage_users_custom_column', array( $this, 'manage_user_show_content' ), 10, 3 );
 	}
 
-	public function create_table(){
+	public function install(){
 		global $wpdb;
 
 		$charset_collate = $wpdb->get_charset_collate();
@@ -41,6 +68,9 @@ class Recent_Logins{
 		dbDelta( $sql );
 	}
 
+	/**
+	 * Add a log entry when a user logges in.
+	 */
 	public function add_log( $user_login, $user ){
 		global $wpdb;
 
@@ -65,6 +95,9 @@ class Recent_Logins{
 		update_user_meta( $user->data->ID, 'last-login', time() );
 	}
 
+	/**
+	 * recent login record table in user profile page
+	 */
 	public function show_recent_logins( $profileuser ){
 		global $wpdb;
 
@@ -85,22 +118,21 @@ class Recent_Logins{
 						<thead>
 							<tr>
 								<th>Time</th>
-								<th>IP</th>
+								<th>IP Address</th>
+								<th>Location</th>
 								<th>Platform</th>
 								<th>Browser</th>
-								<th>Version</th>
 							</tr>
 						</thead>
 						<tbody>
 						<?php foreach( $logs as $log ){
-							$client = unserialize( $log->client );
-							?>
+							$client = unserialize( $log->client ); ?>
 							<tr>
 								<td title="<?php echo $this->ago( $log->time ); ?>"><?php echo date( get_option( 'date_format' ) . " " . get_option( 'time_format' ), $log->time ); ?></td>
-								<td><a href="https://www.ipalyzer.com/<?php echo $log->ip_address; ?>" target="_blank"><?php echo $log->ip_address; ?></td>
+								<td><?php echo $log->ip_address; ?></td>
+								<?php echo apply_filters( 'ip_details_button', '<td><input type="button" class="button button-secondary" onclick="alert(\'Premium Feature. Please upgrade to Pro to see location & map!\')" value="Show" /></td>', $log ); ?>
 								<td><?php echo $client['platform']; ?></td>
-								<td><?php echo $client['name']; ?></td>
-								<td><?php echo $client['version']; ?></td>
+								<td><?php echo $client['name']; ?> <?php echo $client['version']; ?></td>
 							</tr>
 						<?php } ?>
 						</tbody>
@@ -108,10 +140,13 @@ class Recent_Logins{
 				<?php else: ?>
 					<p>No logs found!</p>
 				<?php endif; ?>
-					<!-- <p class="description"><?php _e( 'Bla bla bla bla..' ); ?></p> -->
+				<?php if( current_user_can( 'manage_options' ) && ! RECENT_LOGIN_PRO ) : ?>
+					<p class="description"><a href="<?php echo RECENT_LOGIN_PRO_URL; ?>" target="_blank">Upgrade to Pro</a> to unlock more features like address &amp; location map! Don't worry, your users (non-admin) will not see this notice!</p>
+				<?php endif; ?>
 				</td>
 			</tr>
 		</table>
+		<?php echo apply_filters( 'recent_logins_below_table', '
 		<style>
 			.recent-login-table td,
 			.recent-login-table th {
@@ -119,6 +154,8 @@ class Recent_Logins{
 				padding: 3px 0;
 			}
 		</style>
+		' ); ?>
+		
 	<?php }
 
 	public function manage_user_add_column( $cols ) {
@@ -128,8 +165,9 @@ class Recent_Logins{
 
 	public function manage_user_show_content( $value, $column_name, $user_id ) {
 	    $user = get_userdata( $user_id );
-		if ( 'last-login' == $column_name )
-			return get_user_meta( $user_id, 'last-login', true ) != null ? $this->ago( get_user_meta( $user_id, 'last-login', true ) ) : 'Never';
+		if ( 'last-login' == $column_name ){
+			return apply_filters( 'manage_user_show_content', '<a href="'.RECENT_LOGIN_PRO_URL.'" target="_blank"><i style="">Pro Feature</i></a>', $user_id );
+		}
 	    return $value;
 	}
 
@@ -233,7 +271,7 @@ class Recent_Logins{
 	/**
 	 * @link http://stackoverflow.com/a/14339355/3747157
 	 */
-	public function ago( $ptime ){
+	public static function ago( $ptime ){
 	    $etime = time() - $ptime;
 
 	    if ($etime < 1)
@@ -269,3 +307,4 @@ class Recent_Logins{
 
 }
 new Recent_Logins;
+endif;
