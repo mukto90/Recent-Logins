@@ -46,6 +46,8 @@ class Recent_Logins {
 		add_filter( 'manage_users_columns', array( $this, 'manage_user_add_column' ) );
 		add_filter( 'wpmu_users_columns', array( $this, 'manage_user_add_column' ) );
 		add_filter( 'manage_users_custom_column', array( $this, 'manage_user_show_content' ), 10, 3 );
+
+		if( ! RECENT_LOGIN_PRO ) add_filter( 'plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_action_links') );
 	}
 
 	public function install(){
@@ -130,7 +132,7 @@ class Recent_Logins {
 							<tr>
 								<td title="<?php echo $this->ago( $log->time ); ?>"><?php echo date( get_option( 'date_format' ) . " " . get_option( 'time_format' ), $log->time ); ?></td>
 								<td><?php echo $log->ip_address; ?></td>
-								<?php echo apply_filters( 'ip_details_button', '<td><input type="button" class="button button-secondary" onclick="alert(\'Premium Feature. Please upgrade to Pro to see location & map!\')" value="Show" /></td>', $log ); ?>
+								<?php echo apply_filters( 'ip_details_button', '<td><input type="button" class="button button-secondary" onclick="alert(\'Pro Feature!\')" value="Show" /></td>', $log ); ?>
 								<td><?php echo $client['platform']; ?></td>
 								<td><?php echo $client['name']; ?> <?php echo $client['version']; ?></td>
 							</tr>
@@ -169,6 +171,15 @@ class Recent_Logins {
 			return apply_filters( 'manage_user_show_content', '<a href="'.RECENT_LOGIN_PRO_URL.'" target="_blank"><i style="">Pro Feature</i></a>', $user_id );
 		}
 	    return $value;
+	}
+
+	public function add_action_links ( $links ) {
+		
+		$mylinks = array(
+			'<a href="'.RECENT_LOGIN_PRO_URL.'" target="_blank">Get Pro</a>'
+		);
+		
+		return array_merge( $links, $mylinks );
 	}
 
 	/**
